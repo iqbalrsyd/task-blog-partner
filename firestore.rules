@@ -1,0 +1,33 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isHouseholdMember(householdId) {
+      return true;
+    }
+
+    match /household/{docId} {
+      allow read, write: if true;
+    }
+
+    match /tasks/{docId} {
+      allow read, write: if true;
+    }
+
+    match /cat_logs/{docId} {
+      allow read, write: if true;
+    }
+
+    match /moods/{docId} {
+      allow read, write: if true;
+    }
+
+    match /notes/{docId} {
+      allow read, write: if true;
+    }
+
+    match /notifications/{docId} {
+      allow read, write: if true;
+    }
+  }
+}
