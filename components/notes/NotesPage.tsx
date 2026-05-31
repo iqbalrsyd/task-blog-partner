@@ -109,7 +109,7 @@ export default function NotesPage() {
 							initial={{ opacity: 0, y: 20 }}
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ delay: index * 0.1 }}
-							className={`shadow-soft-lg group rounded-2xl p-6 ${
+							className={`shadow-soft-lg group relative rounded-2xl p-6 pb-11 ${
 								note.author === 'Iqbal'
 									? 'bg-gradient-to-br from-blue-50 to-blue-100'
 									: 'bg-gradient-to-br from-pink-50 to-pink-100'
@@ -135,12 +135,8 @@ export default function NotesPage() {
 								</motion.button>
 							</div>
 							<p className="mb-4 text-lg text-gray-900">{note.content}</p>
-							<div className="rounded-3xl bg-white/70 px-4 py-3 ring-1 ring-black/5">
-								<p className="text-[11px] uppercase tracking-[0.28em] text-gray-500">Shared at</p>
-								<p className="mt-1 text-sm font-semibold text-gray-900">
-									{formatNoteTime(note.createdAt)}
-								</p>
-								<p className="mt-1 text-xs text-gray-600">A little note from {note.author}.</p>
+							<div className="absolute bottom-4 right-4 rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold text-gray-600 ring-1 ring-black/5">
+								{formatNoteTime(note.createdAt)}
 							</div>
 						</motion.div>
 					))}
