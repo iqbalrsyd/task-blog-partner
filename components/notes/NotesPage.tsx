@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Trash2, Heart } from 'lucide-react';
 import { addDoc, collection, deleteDoc, doc } from 'firebase/firestore';
+import { format } from 'date-fns';
 import { db } from '@/lib/firebase';
 import { useHouseholdStore } from '@/lib/stores';
 import { useHouseholdCollection } from '@/lib/household-realtime';
@@ -15,26 +16,32 @@ const mockNotes: Note[] = [
 		householdId: 'demo-household-001',
 		content: "Don't forget snacks for Puing 😾",
 		author: 'Iqbal',
-		createdAt: '10:30 AM Today',
-		updatedAt: '10:30 AM Today'
+		createdAt: '2026-05-31T10:30:00.000Z',
+		updatedAt: '2026-05-31T10:30:00.000Z'
 	},
 	{
 		id: '2',
 		householdId: 'demo-household-001',
 		content: 'Good luck with your meeting ❤️',
 		author: 'Mufti',
-		createdAt: '09:15 AM Today',
-		updatedAt: '09:15 AM Today'
+		createdAt: '2026-05-31T09:15:00.000Z',
+		updatedAt: '2026-05-31T09:15:00.000Z'
 	},
 	{
 		id: '3',
 		householdId: 'demo-household-001',
 		content: 'Movie night this weekend? 🎬',
 		author: 'Iqbal',
-		createdAt: 'Yesterday',
-		updatedAt: 'Yesterday'
+		createdAt: '2026-05-30T18:45:00.000Z',
+		updatedAt: '2026-05-30T18:45:00.000Z'
 	}
 ];
+
+const formatNoteTime = (value: string) => {
+	const parsed = new Date(value);
+	if (Number.isNaN(parsed.getTime())) return value;
+	return format(parsed, 'PPP p');
+};
 
 export default function NotesPage() {
 	const householdId = useHouseholdStore((state) => state.householdId);
@@ -42,6 +49,7 @@ export default function NotesPage() {
 	const [notes, setNotes] = useState<Note[]>(mockNotes);
 	const [showNewNote, setShowNewNote] = useState(false);
 	const [newNoteContent, setNewNoteContent] = useState('');
+	const [newNoteAuthor, setNewNoteAuthor] = useState<'Iqbal' | 'Mufti'>('Iqbal');
 
 	useEffect(() => {
 		if (remoteNotes.length > 0) {
@@ -65,7 +73,7 @@ export default function NotesPage() {
 			id: crypto.randomUUID(),
 			householdId: householdId || 'demo-household-001',
 			content: newNoteContent.trim(),
-			author: 'Iqbal',
+			author: newNoteAuthor,
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString()
 		};
@@ -126,8 +134,14 @@ export default function NotesPage() {
 									<Trash2 size={18} className="text-red-500" />
 								</motion.button>
 							</div>
-							<p className="mb-3 text-lg text-gray-900">{note.content}</p>
-							<p className="text-sm text-gray-600">{note.createdAt}</p>
+							<p className="mb-4 text-lg text-gray-900">{note.content}</p>
+							<div className="rounded-3xl bg-white/70 px-4 py-3 ring-1 ring-black/5">
+								<p className="text-[11px] uppercase tracking-[0.28em] text-gray-500">Shared at</p>
+								<p className="mt-1 text-sm font-semibold text-gray-900">
+									{formatNoteTime(note.createdAt)}
+								</p>
+								<p className="mt-1 text-xs text-gray-600">A little note from {note.author}.</p>
+							</div>
 						</motion.div>
 					))}
 				</div>
@@ -151,6 +165,25 @@ export default function NotesPage() {
 					>
 						<div className="shadow-soft-xl w-full max-w-sm rounded-3xl bg-white p-8">
 							<h2 className="mb-6 text-2xl font-bold">Write a Note</h2>
+							{/* Author selector */}
+							<div className="mb-4 flex gap-2">
+								<button
+									className={`rounded-full px-3 py-1 text-xs font-bold ${
+										newNoteAuthor === 'Iqbal' ? 'bg-blue-200 text-blue-700' : 'bg-gray-100 text-gray-700'
+									}`}
+									onClick={() => setNewNoteAuthor('Iqbal')}
+								>
+									Iqbal
+								</button>
+								<button
+									className={`rounded-full px-3 py-1 text-xs font-bold ${
+										newNoteAuthor === 'Mufti' ? 'bg-pink-200 text-pink-700' : 'bg-gray-100 text-gray-700'
+									}`}
+									onClick={() => setNewNoteAuthor('Mufti')}
+								>
+									Mufti
+								</button>
+							</div>
 							<div className="space-y-4">
 								<textarea
 									placeholder="What do you want to say? 💕"

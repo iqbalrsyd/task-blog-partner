@@ -22,6 +22,33 @@ export default function SettingsPage() {
 		router.push('/');
 	};
 
+	// PIN change state
+	const setPIN = useHouseholdStore((state) => state.setPIN);
+	const [changing, setChanging] = useState(false);
+	const [newPin, setNewPin] = useState('');
+	const [confirmPin, setConfirmPin] = useState('');
+	const [pinMessage, setPinMessage] = useState('');
+
+	const handleStartChange = () => {
+		setChanging(true);
+		setPinMessage('');
+	};
+
+	const handleSavePin = async () => {
+		if (newPin.length !== 4 || confirmPin !== newPin) {
+			setPinMessage('PINs must match and be 4 digits');
+			return;
+		}
+
+		setPIN(newPin);
+		localStorage.setItem('mochi-pin', newPin);
+
+		setChanging(false);
+		setNewPin('');
+		setConfirmPin('');
+		setPinMessage('PIN updated');
+	};
+
 	return (
 		<div className="from-mochi-cream to-mochi-beige min-h-screen bg-gradient-to-br via-white px-4 pb-32 pt-6">
 			<div className="mx-auto max-w-2xl">
@@ -123,10 +150,40 @@ export default function SettingsPage() {
 						<div className="shadow-soft-lg rounded-2xl bg-white p-5">
 							<h3 className="mb-3 font-semibold text-gray-900">Household PIN</h3>
 							<p className="mb-4 text-sm text-gray-600">Current PIN: ••••</p>
-							<button className="bg-mochi-beige text-mochi-brown hover:bg-mochi-warm w-full rounded-xl px-4 py-2 font-medium transition-colors">
+							<button onClick={handleStartChange} className="bg-mochi-beige text-mochi-brown hover:bg-mochi-warm w-full rounded-xl px-4 py-2 font-medium transition-colors">
 								Change PIN
 							</button>
 						</div>
+						{/* Change PIN modal */}
+						{changing && (
+							<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+								<div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-lg">
+									<h3 className="mb-4 text-lg font-semibold">Change Household PIN</h3>
+									<p className="mb-3 text-sm text-gray-600">Enter a new 4-digit PIN.</p>
+									<input
+										type="password"
+										maxLength={4}
+										value={newPin}
+										onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
+										className="mb-3 w-full rounded-xl border border-gray-200 px-4 py-2"
+										placeholder="New PIN"
+									/>
+									<input
+										type="password"
+										maxLength={4}
+										value={confirmPin}
+										onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
+										className="mb-4 w-full rounded-xl border border-gray-200 px-4 py-2"
+										placeholder="Confirm PIN"
+									/>
+									<div className="flex gap-3">
+										<button onClick={() => setChanging(false)} className="w-full rounded-xl bg-gray-200 px-4 py-2">Cancel</button>
+										<button onClick={handleSavePin} className="w-full rounded-xl bg-mochi-sage text-white px-4 py-2">Save</button>
+									</div>
+									{pinMessage && <p className="mt-3 text-sm text-gray-600">{pinMessage}</p>}
+								</div>
+							</div>
+						)}
 					</motion.div>
 
 					{/* Logout */}

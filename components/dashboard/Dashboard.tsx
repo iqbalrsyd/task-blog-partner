@@ -23,13 +23,6 @@ export default function Dashboard() {
 		return null;
 	}
 
-	const bgGradient = {
-		morning: 'from-mochi-cream via-white to-mochi-beige',
-		afternoon: 'from-white via-mochi-beige to-mochi-warm',
-		evening: 'from-mochi-warm via-mochi-beige to-mochi-sage',
-		night: 'from-gray-900 via-gray-800 to-gray-900'
-	}[timeOfDay as keyof typeof bgGradientMap];
-
 	const bgGradientMap = {
 		morning: 'from-mochi-cream via-white to-mochi-beige',
 		afternoon: 'from-white via-mochi-beige to-mochi-warm',
@@ -42,7 +35,7 @@ export default function Dashboard() {
 	return (
 		<div className={`min-h-screen bg-gradient-to-br ${finalGradient} transition-all duration-500`}>
 			{/* Render current page */}
-			{currentPage === 'home' && <HomePage />}
+			{currentPage === 'home' && <HomePage onOpenNotes={() => setCurrentPage('notes')} />}
 			{currentPage === 'tasks' && <TasksPage />}
 			{currentPage === 'mood' && <MoodTracker />}
 			{currentPage === 'mochi' && <PuingPage />}

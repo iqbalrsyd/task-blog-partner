@@ -18,7 +18,7 @@ export interface Task {
 export interface CatLog {
 	id: string;
 	householdId: string;
-	type: 'feeding' | 'water' | 'grooming' | 'medication' | 'note';
+	type: 'feeding' | 'water' | 'poo' | 'play_outside' | 'bath' | 'grooming' | 'medication' | 'note';
 	description: string;
 	timestamp: string;
 	createdAt: string;

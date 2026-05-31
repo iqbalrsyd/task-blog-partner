@@ -5,14 +5,17 @@ import { motion } from 'framer-motion';
 import { useTheme } from '@/lib/theme-context';
 import { Clock } from 'lucide-react';
 import { useHouseholdCollection } from '@/lib/household-realtime';
-import type { CatLog, Mood, Note, Task } from '@/lib/types';
+import type { Mood, Note, Task } from '@/lib/types';
 
-export default function HomePage() {
+type HomePageProps = {
+	onOpenNotes: () => void;
+};
+
+export default function HomePage({ onOpenNotes }: HomePageProps) {
 	const { timeOfDay } = useTheme();
 	const { data: tasks } = useHouseholdCollection<Task>('tasks');
 	const { data: moods } = useHouseholdCollection<Mood>('moods');
 	const { data: notes } = useHouseholdCollection<Note>('notes');
-	const { data: catLogs } = useHouseholdCollection<CatLog>('cat_logs');
 
 	const greeting = {
 		morning: 'Good morning! ☀️',
@@ -46,10 +49,8 @@ export default function HomePage() {
 
 	const liveTasks = tasks.slice(0, 3);
 	const liveNotes = notes.slice(0, 2);
-	const latestCatLog = catLogs[0];
 	const primaryNote = liveNotes[0];
 	const secondaryNote = liveNotes[1];
-	const latestMeal = catLogs.find((log) => log.type === 'feeding');
 
 	return (
 		<main className="from-mochi-cream/90 to-mochi-beige/90 min-h-screen bg-gradient-to-b via-white/95 px-4 pb-28 pt-6">
@@ -92,32 +93,6 @@ export default function HomePage() {
 						</div>
 						<div className="bg-mochi-brown text-mochi-cream shadow-soft flex h-14 w-14 items-center justify-center rounded-3xl text-3xl">
 							{sharedMood.emoji}
-						</div>
-					</div>
-				</div>
-			</motion.div>
-
-			<motion.div
-				initial={{ opacity: 0, y: 20 }}
-				animate={{ opacity: 1, y: 0 }}
-				transition={{ delay: 0.18 }}
-				className="mx-auto mb-8 max-w-2xl"
-			>
-				<div className="shadow-soft-lg rounded-[28px] border border-black/5 bg-white/95 p-5">
-					<div className="flex items-start justify-between gap-4">
-						<div>
-							<p className="text-mochi-brown/60 text-[11px] uppercase tracking-[0.3em]">
-								Puing status
-							</p>
-							<h2 className="mt-2 text-2xl font-bold">Last time I ate</h2>
-							<p className="mt-1 text-sm text-gray-600">
-								{latestMeal
-									? format(new Date(latestMeal.timestamp), 'PPP p')
-									: 'No feeding log yet'}
-							</p>
-						</div>
-						<div className="bg-mochi-brown text-mochi-cream shadow-soft flex h-12 w-12 items-center justify-center rounded-2xl text-2xl">
-							🍽️
 						</div>
 					</div>
 				</div>
@@ -192,41 +167,7 @@ export default function HomePage() {
 				</div>
 			</motion.div>
 
-			{/* Cat Status Card */}
-			<motion.div
-				initial={{ opacity: 0, y: 20 }}
-				animate={{ opacity: 1, y: 0 }}
-				transition={{ delay: 0.3 }}
-				className="mx-auto max-w-2xl"
-			>
-				<div className="from-mochi-warm to-mochi-sage shadow-soft-lg mb-8 rounded-3xl bg-gradient-to-br p-8 text-white">
-					<div className="mb-6 flex items-start justify-between">
-						<div>
-							<h3 className="mb-2 text-2xl font-bold">Puing&apos;s Status</h3>
-							<p className="opacity-90">
-								{latestMeal
-									? `Last time I ate: ${format(new Date(latestMeal.timestamp), 'PPP p')}`
-									: 'No feeding log yet'}
-							</p>
-						</div>
-						<span className="text-5xl">🐱</span>
-					</div>
-					<div className="grid grid-cols-3 gap-4">
-						<div className="rounded-2xl bg-white/20 p-4 backdrop-blur">
-							<p className="mb-2 text-sm opacity-80">Fed</p>
-							<p className="text-lg font-bold">✅ 08:00 AM</p>
-						</div>
-						<div className="rounded-2xl bg-white/20 p-4 backdrop-blur">
-							<p className="mb-2 text-sm opacity-80">Water</p>
-							<p className="text-lg font-bold">✅ 10:00 AM</p>
-						</div>
-						<div className="rounded-2xl bg-white/20 p-4 backdrop-blur">
-							<p className="mb-2 text-sm opacity-80">Play</p>
-							<p className="text-lg font-bold">❌ Later</p>
-						</div>
-					</div>
-				</div>
-			</motion.div>
+
 
 			{/* Quick Notes */}
 			<motion.div
@@ -237,18 +178,33 @@ export default function HomePage() {
 			>
 				<h2 className="mb-4 text-2xl font-bold">Quick Notes</h2>
 				<div className="space-y-3">
-					<div className="rounded-2xl border border-yellow-200 bg-yellow-100/50 p-4">
-						<p className="text-sm text-gray-700">
-							{primaryNote ? `${primaryNote.content} - ${primaryNote.author}` : 'No notes yet'}
-						</p>
-					</div>
-					<div className="rounded-2xl border border-pink-200 bg-pink-100/50 p-4">
-						<p className="text-sm text-gray-700">
-							{secondaryNote
-								? `${secondaryNote.content} - ${secondaryNote.author}`
-								: 'Leave a sweet note'}
-						</p>
-					</div>
+					{(primaryNote || secondaryNote) && (
+						<div className="grid gap-3">
+							{[primaryNote, secondaryNote].filter(Boolean).map((note) => {
+								const isIqbal = note!.author === 'Iqbal';
+								return (
+									<div
+										key={note!.id}
+										className={`rounded-2xl border p-4 ${
+											isIqbal
+												? 'border-blue-200 bg-blue-100/60'
+												: 'border-pink-200 bg-pink-100/60'
+										}`}
+									>
+										<p className="text-sm text-gray-700">{note!.content}</p>
+										<p className="mt-2 text-xs font-semibold text-gray-600">{note!.author}</p>
+									</div>
+								);
+							})}
+						</div>
+					)}
+					<button
+						onClick={onOpenNotes}
+						className="shadow-soft-lg hover:shadow-soft-xl w-full rounded-2xl border border-dashed border-mochi-brown/20 bg-white/80 p-4 text-left transition-shadow"
+					>
+						<p className="font-semibold text-gray-900">Leave a sweet note</p>
+						<p className="mt-1 text-sm text-gray-600">Go straight to the notes page.</p>
+					</button>
 				</div>
 			</motion.div>
 		</main>

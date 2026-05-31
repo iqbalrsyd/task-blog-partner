@@ -1,21 +1,127 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { BellRing, Clock3 } from 'lucide-react';
 import { initializeNotifications } from '@/lib/notifications';
+import { useHouseholdCollection } from '@/lib/household-realtime';
+import type { Task } from '@/lib/types';
 
-const reminders = [
-	{ id: '1', label: 'Feed Puing', time: '18:30', emoji: '🐱', tone: 'warm' },
-	{ id: '2', label: 'Laundry check', time: '20:00', emoji: '🧺', tone: 'soft' },
-	{ id: '3', label: 'Good night note', time: '22:00', emoji: '💌', tone: 'gentle' }
-];
+type TaskReminder = {
+	id: string;
+	label: string;
+	time: string;
+	emoji: string;
+	status: 'upcoming' | 'due' | 'overdue';
+};
+
+const createReminderKey = (task: Task) => `${task.id}:${task.updatedAt}:${task.completed}`;
+
+const parseDueDate = (task: Task) => {
+	if (!task.dueTime) return null;
+
+	const now = new Date();
+	const [timePart, meridiemPart] = task.dueTime.trim().split(/\s+/);
+	const [hourPart, minutePart] = timePart.split(':');
+	let hour = Number(hourPart);
+	const minute = Number(minutePart || '0');
+
+	if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+
+	if (meridiemPart) {
+		const normalizedMeridiem = meridiemPart.toUpperCase();
+		if (normalizedMeridiem === 'PM' && hour < 12) hour += 12;
+		if (normalizedMeridiem === 'AM' && hour === 12) hour = 0;
+	}
+
+	const target = new Date(now);
+	if (task.dueDate === 'tomorrow') {
+		target.setDate(target.getDate() + 1);
+	} else if (task.dueDate !== 'today') {
+		const exactDate = new Date(task.dueDate);
+		if (!Number.isNaN(exactDate.getTime())) {
+			target.setTime(exactDate.getTime());
+		}
+	}
+
+	target.setHours(hour, minute, 0, 0);
+	return target;
+};
 
 export default function ReminderPanel() {
+	const { data: tasks } = useHouseholdCollection<Task>('tasks');
 	const [enabled, setEnabled] = useState(false);
 	const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'blocked'>('idle');
 	const [token, setToken] = useState<string | null>(null);
 	const [message, setMessage] = useState('Enable reminders for deadlines and Puing care.');
+	const timersRef = useRef<Map<string, number>>(new Map());
+	const notifiedRef = useRef<Set<string>>(new Set());
+
+	const taskReminders = useMemo<TaskReminder[]>(() => {
+		const now = Date.now();
+		return tasks
+			.filter((task) => !task.completed && task.dueTime)
+			.map((task) => {
+				const dueDate = parseDueDate(task);
+				if (!dueDate) return null;
+
+				const remaining = dueDate.getTime() - now;
+				const status: TaskReminder['status'] = remaining <= 0 ? 'overdue' : remaining <= 30 * 60 * 1000 ? 'due' : 'upcoming';
+				return {
+					id: task.id,
+					label: task.title,
+					time: task.dueTime,
+					emoji: task.assignedTo === 'Iqbal' ? '💙' : '💗',
+					status
+				};
+			})
+			.filter((item): item is TaskReminder => item !== null)
+			.sort((a, b) => a.time.localeCompare(b.time));
+	}, [tasks]);
+
+	useEffect(() => {
+		const clearTimers = () => {
+			timersRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+			timersRef.current.clear();
+		};
+
+		clearTimers();
+
+		if (!enabled || typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+			return clearTimers;
+		}
+
+		for (const task of tasks) {
+			if (task.completed || !task.dueTime) continue;
+
+			const dueDate = parseDueDate(task);
+			if (!dueDate) continue;
+
+			const key = createReminderKey(task);
+			if (notifiedRef.current.has(key)) continue;
+
+			const delay = dueDate.getTime() - Date.now();
+			const fireReminder = () => {
+				if (Notification.permission !== 'granted') return;
+				const isOverdue = dueDate.getTime() <= Date.now();
+				new Notification(isOverdue ? 'Task overdue' : 'Task reminder', {
+					body: `${task.title} for ${task.assignedTo} is ${isOverdue ? 'overdue' : 'due now'}.`,
+					icon: '/favicon.ico'
+				});
+				notifiedRef.current.add(key);
+			};
+
+			if (delay <= 0) {
+				fireReminder();
+				continue;
+			}
+
+			const timeoutId = window.setTimeout(fireReminder, delay);
+			timersRef.current.set(key, timeoutId);
+		}
+
+		return clearTimers;
+	}, [enabled, tasks]);
 
 	const handleEnable = async () => {
 		setStatus('loading');
@@ -56,6 +162,9 @@ export default function ReminderPanel() {
 			result.token ? 'Notifications are ready.' : 'Push reminders could not be enabled yet.'
 		);
 		setStatus(result.token ? 'ready' : 'blocked');
+		if (result.token || Notification.permission === 'granted') {
+			setMessage('Task timer notifications are active.');
+		}
 	};
 
 	return (
@@ -81,16 +190,33 @@ export default function ReminderPanel() {
 				</div>
 
 				<div className="space-y-3 p-5 sm:p-6">
-					{reminders.map((reminder) => (
+					{taskReminders.length === 0 && (
+						<div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+							No task timers set yet. Add a due time on a task to get reminders.
+						</div>
+					)}
+					{taskReminders.map((reminder) => (
 						<div
 							key={reminder.id}
-							className="bg-mochi-cream flex items-center justify-between rounded-2xl px-4 py-3"
+							className={`flex items-center justify-between rounded-2xl px-4 py-3 ${
+								reminder.status === 'overdue'
+									? 'bg-red-50'
+									: reminder.status === 'due'
+										? 'bg-amber-50'
+										: 'bg-mochi-cream'
+							}`}
 						>
 							<div className="flex items-center gap-3">
 								<span className="text-2xl">{reminder.emoji}</span>
 								<div>
 									<p className="font-medium text-gray-900">{reminder.label}</p>
-									<p className="text-xs text-gray-600">Overdue and deadline reminders</p>
+									<p className="text-xs text-gray-600">
+										{reminder.status === 'overdue'
+											? 'Overdue'
+											: reminder.status === 'due'
+												? 'Due soon'
+												: 'Scheduled'}
+									</p>
 								</div>
 							</div>
 							<div className="flex items-center gap-2 text-sm text-gray-600">
@@ -110,7 +236,7 @@ export default function ReminderPanel() {
 								<BellRing size={18} className={enabled ? 'text-emerald-600' : 'text-gray-500'} />
 							</div>
 							<div>
-								<p className="font-medium text-gray-900">Push reminders</p>
+								<p className="font-medium text-gray-900">Task timer reminders</p>
 								<p className="text-sm text-gray-600">{message}</p>
 							</div>
 						</div>
