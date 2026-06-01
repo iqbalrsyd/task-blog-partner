@@ -2,14 +2,17 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
+import { format } from 'date-fns';
 import { addDoc, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import WeeklyStatistics, { WeeklyStatisticDay } from '@/components/shared/WeeklyStatistics';
 import { useHouseholdStore } from '@/lib/stores';
 import { useHouseholdCollection } from '@/lib/household-realtime';
 import type { Mood } from '@/lib/types';
 
-type Partner = 'Iqbal' | 'Mufti';
+type Partner = 'Iqbal' | 'Mufti' | 'Puing';
 type MoodKey = Mood['mood'];
+const partners: Partner[] = ['Iqbal', 'Mufti', 'Puing'];
 
 const moodConfig: Record<
 	MoodKey,
@@ -27,6 +30,13 @@ const moodConfig: Record<
 		caption: 'Soft and sunny',
 		bg: 'from-amber-50 to-amber-100',
 		border: 'border-amber-200'
+	},
+	hungry: {
+		label: 'Hungry',
+		emoji: '🍽️',
+		caption: 'Snack time needed',
+		bg: 'from-orange-50 to-orange-100',
+		border: 'border-orange-200'
 	},
 	tired: {
 		label: 'Tired',
@@ -58,11 +68,12 @@ const moodConfig: Record<
 	}
 };
 
-const moodOptions: MoodKey[] = ['happy', 'tired', 'productive', 'sleepy', 'stressed'];
+const moodOptions: MoodKey[] = ['happy', 'hungry', 'tired', 'productive', 'sleepy', 'stressed'];
 
 const initialMoods: Record<Partner, MoodKey> = {
 	Iqbal: 'happy',
-	Mufti: 'productive'
+	Mufti: 'productive',
+	Puing: 'happy'
 };
 
 function getSharedMood(moods: Record<Partner, MoodKey>) {
@@ -83,6 +94,15 @@ function getSharedMood(moods: Record<Partner, MoodKey>) {
 			label: 'Quiet and cozy',
 			description: 'Low-key energy, lots of care.',
 			badge: 'rest mode'
+		};
+	}
+
+	if (values.includes('hungry')) {
+		return {
+			emoji: '🍪',
+			label: 'Snack time',
+			description: 'Someone needs food and a reset.',
+			badge: 'snack mode'
 		};
 	}
 
@@ -108,12 +128,13 @@ export default function MoodTracker() {
 	const { data: remoteMoods } = useHouseholdCollection<Mood>('moods');
 	const [moods, setMoods] = useState<Record<Partner, MoodKey>>(initialMoods);
 	const [hydrated, setHydrated] = useState(false);
+	const todayKey = new Date().toISOString().slice(0, 10);
 
 	useEffect(() => {
 		if (remoteMoods.length > 0) {
 			const latest: Record<Partner, MoodKey> = { ...initialMoods };
 
-			['Iqbal', 'Mufti'].forEach((partner) => {
+			partners.forEach((partner) => {
 				const records = remoteMoods
 					.filter((entry) => entry.partner === partner)
 					.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
@@ -130,6 +151,12 @@ export default function MoodTracker() {
 	}, [remoteMoods]);
 
 	const sharedMood = useMemo(() => getSharedMood(moods), [moods]);
+	const todayMoods = remoteMoods.filter((entry) => entry.date === todayKey);
+	const todayHappy = todayMoods.filter((entry) => entry.mood === 'happy').length;
+	const todayHungry = todayMoods.filter((entry) => entry.mood === 'hungry').length;
+	const todayProductive = todayMoods.filter((entry) => entry.mood === 'productive').length;
+	const todayRestful = todayMoods.filter((entry) => entry.mood === 'tired' || entry.mood === 'sleepy').length;
+	const todayStressed = todayMoods.filter((entry) => entry.mood === 'stressed').length;
 
 	const updateMood = async (partner: Partner, mood: MoodKey) => {
 		setMoods((prev) => ({ ...prev, [partner]: mood }));
@@ -149,10 +176,61 @@ export default function MoodTracker() {
 		});
 	};
 
+	const weekDays = useMemo((): WeeklyStatisticDay[] =>
+		Array.from({ length: 7 }, (_, index) => {
+			const value = new Date();
+			value.setDate(value.getDate() - index);
+			return {
+				key: value.toISOString().slice(0, 10),
+				weekdayLabel: format(value, 'EEE'),
+				dateLabel: format(value, 'd'),
+				monthLabel: format(value, 'MMM')
+			};
+		}).reverse(), []);
+
+	const renderMoodDay = (day: WeeklyStatisticDay) => {
+		const entries = remoteMoods.filter((m) => m.date === day.key);
+		const dayStats = {
+			total: entries.length,
+			happy: entries.filter((e) => e.mood === 'happy').length,
+			hungry: entries.filter((e) => e.mood === 'hungry').length,
+			productive: entries.filter((e) => e.mood === 'productive').length,
+			restful: entries.filter((e) => e.mood === 'tired' || e.mood === 'sleepy').length,
+			stressed: entries.filter((e) => e.mood === 'stressed').length
+		};
+
+		return (
+			<div>
+				<div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+					{[
+						{ label: 'Total', value: dayStats.total },
+						{ label: 'Happy', value: dayStats.happy },
+						{ label: 'Hungry', value: dayStats.hungry },
+						{ label: 'Productive', value: dayStats.productive },
+						{ label: 'Restful', value: dayStats.restful },
+						{ label: 'Stressed', value: dayStats.stressed }
+					].map((item) => (
+						<div key={item.label} className="rounded-2xl bg-white px-3 py-3 text-center shadow-soft">
+							<p className="text-[11px] uppercase tracking-[0.2em] text-gray-500">{item.label}</p>
+							<p className="mt-1 text-xl font-bold text-mochi-brown">{item.value}</p>
+						</div>
+					))}
+				</div>
+			</div>
+		);
+	};
+
 	if (!hydrated) return null;
 
 	return (
 		<section className="mx-auto mb-8 max-w-2xl px-4">
+			<WeeklyStatistics
+				title="Household moods"
+				description="See mood counts for each day over the last week."
+				days={weekDays}
+				renderContent={renderMoodDay}
+				defaultDayKey={todayKey}
+			/>
 			<motion.div
 				initial={{ opacity: 0, y: 20 }}
 				animate={{ opacity: 1, y: 0 }}
@@ -188,8 +266,8 @@ export default function MoodTracker() {
 					</div>
 				</div>
 
-				<div className="grid gap-4 p-5 sm:p-6 md:grid-cols-2">
-					{(['Iqbal', 'Mufti'] as const).map((partner) => {
+				<div className="grid gap-4 p-5 sm:p-6 md:grid-cols-3">
+					{partners.map((partner) => {
 						const currentMood = moods[partner];
 						const activeConfig = moodConfig[currentMood];
 
@@ -250,6 +328,21 @@ export default function MoodTracker() {
 						<div className="shadow-soft rounded-full bg-white px-4 py-2 text-sm font-medium text-gray-700">
 							{sharedMood.emoji} {sharedMood.badge}
 						</div>
+					</div>
+					<div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+						{[
+							{ label: 'Today', value: todayMoods.length },
+							{ label: 'Happy', value: todayHappy },
+							{ label: 'Hungry', value: todayHungry },
+							{ label: 'Productive', value: todayProductive },
+							{ label: 'Restful', value: todayRestful },
+							{ label: 'Stressed', value: todayStressed }
+						].map((item) => (
+							<div key={item.label} className="rounded-2xl bg-white px-3 py-3 text-center shadow-soft">
+								<p className="text-[11px] uppercase tracking-[0.2em] text-gray-500">{item.label}</p>
+								<p className="mt-1 text-xl font-bold text-mochi-brown">{item.value}</p>
+							</div>
+						))}
 					</div>
 				</div>
 			</motion.div>

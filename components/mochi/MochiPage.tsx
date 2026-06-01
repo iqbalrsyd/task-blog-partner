@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Camera, Plus } from 'lucide-react';
+import { Camera, Plus, RotateCcw } from 'lucide-react';
 import { addDoc, collection } from 'firebase/firestore';
 import { format } from 'date-fns';
+import WeeklyStatistics, { WeeklyStatisticDay } from '@/components/shared/WeeklyStatistics';
 import { db } from '@/lib/firebase';
 import { useHouseholdStore } from '@/lib/stores';
 import { useHouseholdCollection } from '@/lib/household-realtime';
@@ -33,6 +34,8 @@ const templateStyles: Record<CareAction, string> = {
 	bath: 'bg-pink-100',
 };
 
+const getDayKey = (value: Date) => format(value, 'yyyy-MM-dd');
+
 const mockCatLogs: CatLog[] = [
 	{
 		id: '1',
@@ -60,24 +63,91 @@ export default function PuingPage() {
 	const [logs, setLogs] = useState<CatLog[]>(mockCatLogs);
 	const [selectedFile, setSelectedFile] = useState<File | null>(null);
 	const [showPhotoHint, setShowPhotoHint] = useState(false);
+	const [resetAt, setResetAt] = useState(() => new Date().toISOString());
+	const [todayKey, setTodayKey] = useState(() => getDayKey(new Date()));
 
 	useEffect(() => {
 		if (remoteLogs.length > 0) setLogs(remoteLogs);
 	}, [remoteLogs]);
 
+	useEffect(() => {
+		const syncDay = () => {
+			const currentKey = getDayKey(new Date());
+			setTodayKey(currentKey);
+			setResetAt((prev) => (getDayKey(new Date(prev)) === currentKey ? prev : new Date().toISOString()));
+		};
+
+		syncDay();
+		const intervalId = window.setInterval(syncDay, 60 * 1000);
+		return () => window.clearInterval(intervalId);
+	}, []);
+
 	const activeLogs = remoteLogs.length > 0 ? remoteLogs : logs;
-	const latestFeed = activeLogs.find((log) => log.type === 'feeding');
+	const visibleLogs = useMemo(
+		() => activeLogs.filter((log) => log.timestamp >= resetAt),
+		[activeLogs, resetAt]
+	);
+	const latestFeed = visibleLogs.find((log) => log.type === 'feeding');
 
 	const stats = useMemo(
 		() => ({
-			fed: activeLogs.filter((log) => log.type === 'feeding').length,
-			water: activeLogs.filter((log) => log.type === 'water').length,
-			poo: activeLogs.filter((log) => log.type === 'poo').length,
-			play: activeLogs.filter((log) => log.type === 'play_outside').length,
-			bath: activeLogs.filter((log) => log.type === 'bath').length,
+			fed: visibleLogs.filter((log) => log.type === 'feeding').length,
+			water: visibleLogs.filter((log) => log.type === 'water').length,
+			poo: visibleLogs.filter((log) => log.type === 'poo').length,
+			play: visibleLogs.filter((log) => log.type === 'play_outside').length,
+			bath: visibleLogs.filter((log) => log.type === 'bath').length,
+			total: visibleLogs.length,
 		}),
-		[activeLogs]
+		[visibleLogs]
 	);
+
+	const weekDays = useMemo((): WeeklyStatisticDay[] =>
+		Array.from({ length: 7 }, (_, index) => {
+			const value = new Date();
+			value.setDate(value.getDate() - index);
+			return {
+				key: value.toISOString().slice(0, 10),
+				weekdayLabel: format(value, 'EEE'),
+				dateLabel: format(value, 'd'),
+				monthLabel: format(value, 'MMM')
+			};
+		}).reverse(), []);
+
+	const renderWeeklyContent = (day: WeeklyStatisticDay) => {
+		const dayLogs = activeLogs.filter((l) => l.timestamp.slice(0, 10) === day.key);
+		const dayStats = {
+			fed: dayLogs.filter((log) => log.type === 'feeding').length,
+			water: dayLogs.filter((log) => log.type === 'water').length,
+			poo: dayLogs.filter((log) => log.type === 'poo').length,
+			play: dayLogs.filter((log) => log.type === 'play_outside').length,
+			bath: dayLogs.filter((log) => log.type === 'bath').length,
+			total: dayLogs.length
+		};
+
+	    return (
+	        <div>
+	            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+	                {([
+	                    { label: 'Fed', value: dayStats.fed },
+	                    { label: 'Water', value: dayStats.water },
+	                    { label: 'Poo', value: dayStats.poo },
+	                    { label: 'Play', value: dayStats.play },
+	                    { label: 'Bath', value: dayStats.bath },
+	                    { label: 'Total', value: dayStats.total }
+	                ]).map((item) => (
+	                    <div key={item.label} className="shadow-soft rounded-2xl bg-white p-3 text-center">
+	                        <p className="text-xs text-gray-500">{item.label}</p>
+	                        <p className="text-lg font-bold text-mochi-brown">{item.value}</p>
+	                    </div>
+	                ))}
+	            </div>
+	        </div>
+	    );
+	};
+
+	const resetDailyStats = () => {
+		setResetAt(new Date().toISOString());
+	};
 
 	const createCareLog = async (type: CareAction) => {
 		const now = new Date().toISOString();
@@ -111,22 +181,53 @@ export default function PuingPage() {
 		window.setTimeout(() => setShowPhotoHint(false), 2500);
 	};
 
+	const catPhotoTemplate = (
+		<div className="shadow-soft inline-flex h-28 w-28 items-center justify-center overflow-hidden rounded-[32px] border border-dashed border-white/60 bg-white/15 px-3 text-center text-white backdrop-blur-sm">
+			<div className="text-[11px] font-semibold uppercase leading-tight tracking-[0.2em]">
+				Cat photo template
+			</div>
+		</div>
+	);
+
 	return (
 		<div className="from-mochi-cream to-mochi-beige min-h-screen bg-gradient-to-br via-white px-4 pb-32 pt-6">
 			<div className="mx-auto max-w-2xl">
+				{/* Weekly statistics for Puing */}
+				<WeeklyStatistics
+					title="Puing care"
+					description="Review care actions over the last 7 days."
+					days={weekDays}
+					renderContent={renderWeeklyContent}
+					defaultDayKey={todayKey}
+				/>
 				<motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="mb-12 text-center">
-					<div className="mb-4 inline-block text-8xl">🐱</div>
+					<div className="mb-4 inline-flex">{catPhotoTemplate}</div>
 					<h1 className="mb-2 text-4xl font-bold">Puing&apos;s Care</h1>
 					<p className="text-gray-600">Track feeding, water, poo, play outside, and bath</p>
 				</motion.div>
 
-				<div className="mb-8 grid grid-cols-5 gap-2">
+				<div className="mb-4 flex items-start justify-between gap-3 rounded-[28px] bg-white px-5 py-4 shadow-soft-lg">
+					<div>
+						<p className="text-xs font-semibold uppercase tracking-[0.25em] text-gray-500">Daily stats</p>
+						<p className="mt-1 text-sm text-gray-600">{todayKey}</p>
+					</div>
+					<button
+						onClick={resetDailyStats}
+						className="shadow-soft inline-flex items-center gap-2 rounded-full bg-mochi-brown px-4 py-2 text-sm font-medium text-white"
+					>
+						<RotateCcw size={16} />
+						Reset
+					</button>
+				</div>
+
+				<div className="mb-8 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
 					{([
 						{ label: 'Fed', value: stats.fed },
 						{ label: 'Water', value: stats.water },
 						{ label: 'Poo', value: stats.poo },
 						{ label: 'Play', value: stats.play },
-						{ label: 'Bath', value: stats.bath }
+						{ label: 'Bath', value: stats.bath },
+						{ label: 'Total', value: stats.total }
 					]).map((item) => (
 						<div key={item.label} className="shadow-soft rounded-2xl bg-white p-3 text-center">
 							<p className="text-xs text-gray-500">{item.label}</p>
@@ -175,7 +276,7 @@ export default function PuingPage() {
 				</div>
 
 				<div className="space-y-3">
-					{activeLogs.map((log, index) => (
+					{visibleLogs.map((log, index) => (
 						<motion.div key={log.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }} className="shadow-soft-lg rounded-2xl bg-white p-5">
 							<div className="flex items-start justify-between gap-4">
 								<div>
@@ -186,6 +287,11 @@ export default function PuingPage() {
 							</div>
 						</motion.div>
 					))}
+					{visibleLogs.length === 0 && (
+						<div className="rounded-2xl border border-dashed border-gray-200 bg-white/80 p-5 text-sm text-gray-600">
+							No care logs yet for today. Hit Reset to start a fresh day, or add a new care action.
+						</div>
+					)}
 				</div>
 			</div>
 		</div>

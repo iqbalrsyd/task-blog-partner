@@ -3,7 +3,7 @@ export interface Task {
 	householdId: string;
 	title: string;
 	description?: string;
-	assignedTo: 'Iqbal' | 'Mufti';
+	assignedTo: 'Iqbal' | 'Mufti' | 'Puing';
 	dueTime?: string;
 	dueDate: string;
 	completed: boolean;
@@ -30,8 +30,8 @@ export interface CatLog {
 export interface Mood {
 	id: string;
 	householdId: string;
-	partner: 'Iqbal' | 'Mufti';
-	mood: 'happy' | 'tired' | 'productive' | 'sleepy' | 'stressed';
+	partner: 'Iqbal' | 'Mufti' | 'Puing';
+	mood: 'happy' | 'tired' | 'productive' | 'sleepy' | 'stressed' | 'hungry';
 	date: string;
 	timestamp: string;
 	createdAt: string;
@@ -42,7 +42,8 @@ export interface Note {
 	id: string;
 	householdId: string;
 	content: string;
-	author: 'Iqbal' | 'Mufti';
+	author: 'Iqbal' | 'Mufti' | 'Puing';
+	noteTime?: string;
 	createdAt: string;
 	updatedAt: string;
 }

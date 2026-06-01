@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Trash2, CheckCircle2 } from 'lucide-react';
 import { addDoc, collection, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { format } from 'date-fns';
 import { db } from '@/lib/firebase';
 import { useHouseholdStore } from '@/lib/stores';
 import { useHouseholdCollection } from '@/lib/household-realtime';
@@ -56,7 +57,7 @@ export default function TasksPage() {
 	const [tasks, setTasks] = useState<TaskItem[]>(fallbackTasks);
 	const [showNewTask, setShowNewTask] = useState(false);
 	const [newTaskTitle, setNewTaskTitle] = useState('');
-	const [newTaskAssignee, setNewTaskAssignee] = useState<'Iqbal' | 'Mufti'>('Iqbal');
+	const [newTaskAssignee, setNewTaskAssignee] = useState<'Iqbal' | 'Mufti' | 'Puing'>('Iqbal');
 	const [newTaskTime, setNewTaskTime] = useState('');
 	const [selectedPriority, setSelectedPriority] = useState<'low' | 'medium' | 'high' | null>(null);
 
@@ -126,10 +127,89 @@ export default function TasksPage() {
 
 	const completedCount = activeTasks.filter((t) => t.completed).length;
 	const totalCount = activeTasks.length || 1;
+	type WeekDayStat = {
+		key: string;
+		date: Date;
+		label: string;
+		monthDay: string;
+	};
+	const weekDays = useMemo(
+		(): WeekDayStat[] =>
+			Array.from({ length: 7 }, (_, index): WeekDayStat => {
+				const value = new Date();
+				value.setDate(value.getDate() - index);
+				return {
+					key: value.toISOString().slice(0, 10),
+					date: value,
+					label: format(value, 'EEE'),
+					monthDay: format(value, 'd MMM')
+				};
+			}).reverse(),
+		[]
+	);
+	const [selectedDayKey, setSelectedDayKey] = useState(() => new Date().toISOString().slice(0, 10));
+	const selectedDay = weekDays.find((day) => day.key === selectedDayKey) ?? weekDays.at(-1);
+	const getDateKey = (value: string) => value.slice(0, 10);
+	const selectedCreatedTasks = activeTasks.filter((task) => getDateKey(task.createdAt) === selectedDayKey);
+	const selectedCompletedTasks = activeTasks.filter((task) => getDateKey(task.completedAt || '') === selectedDayKey);
+	const selectedOpenTasks = activeTasks.filter((task) => {
+		const createdOnOrBefore = getDateKey(task.createdAt) <= selectedDayKey;
+		const completedAfter = !task.completedAt || getDateKey(task.completedAt) > selectedDayKey;
+		return createdOnOrBefore && completedAfter;
+	});
+	const selectedHighPriority = selectedCreatedTasks.filter((task) => task.priority === 'high').length;
+	const todaysTasks = activeTasks.filter((task) => task.dueDate === 'today');
+	const todaysCompleted = todaysTasks.filter((task) => task.completed).length;
+	const todaysPending = todaysTasks.filter((task) => !task.completed).length;
+	const todaysHighPriority = todaysTasks.filter((task) => task.priority === 'high').length;
 
 	return (
 		<div className="from-mochi-cream to-mochi-beige min-h-screen bg-gradient-to-br via-white px-4 pb-32 pt-6">
 			<div className="mx-auto max-w-2xl">
+				<div className="shadow-soft-lg mb-6 rounded-[28px] bg-white p-5 ring-1 ring-black/5">
+					<div className="flex items-start justify-between gap-4">
+						<div>
+							<p className="text-mochi-brown/60 text-[11px] uppercase tracking-[0.3em]">Weekly Statistics</p>
+							<h2 className="mt-2 text-2xl font-bold">Tasks by day</h2>
+							<p className="mt-1 text-sm text-gray-600">Tap a day to review that date&apos;s task stats.</p>
+						</div>
+						<div className="rounded-full bg-mochi-cream px-4 py-2 text-sm font-semibold text-gray-700">
+							{selectedDay?.monthDay}
+						</div>
+					</div>
+					<div className="mt-4 -mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
+						{weekDays.map((day) => {
+							const isActive = day.key === selectedDayKey;
+							return (
+								<button
+									key={day.key}
+									type="button"
+									onClick={() => setSelectedDayKey(day.key)}
+									className={`min-w-20 snap-start rounded-2xl px-3 py-3 text-center transition-all ${
+										isActive ? 'bg-mochi-brown text-white' : 'bg-mochi-cream text-gray-700'
+									}`}
+								>
+									<p className="text-[11px] uppercase tracking-[0.2em]">{day.label}</p>
+									<p className="mt-1 text-sm font-semibold">{day.monthDay}</p>
+								</button>
+							);
+						})}
+					</div>
+					<div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+						{[
+							{ label: 'Created', value: selectedCreatedTasks.length },
+							{ label: 'Completed', value: selectedCompletedTasks.length },
+							{ label: 'Open', value: selectedOpenTasks.length },
+							{ label: 'High priority', value: selectedHighPriority }
+						].map((item) => (
+							<div key={item.label} className="rounded-2xl bg-mochi-cream/70 px-3 py-3 text-center">
+								<p className="text-[11px] uppercase tracking-[0.2em] text-gray-500">{item.label}</p>
+								<p className="mt-1 text-xl font-bold text-mochi-brown">{item.value}</p>
+							</div>
+						))}
+					</div>
+				</div>
+
 				{/* Header */}
 				<motion.div
 					initial={{ opacity: 0, y: -20 }}
@@ -151,6 +231,32 @@ export default function TasksPage() {
 				{loading && remoteTasks.length === 0 && (
 					<p className="mb-4 text-sm text-gray-500">Loading household tasks...</p>
 				)}
+
+				<div className="shadow-soft-lg mb-8 rounded-[28px] bg-white p-5 ring-1 ring-black/5">
+					<div className="flex items-start justify-between gap-4">
+						<div>
+							<p className="text-mochi-brown/60 text-[11px] uppercase tracking-[0.3em]">Daily stats</p>
+							<h2 className="mt-2 text-2xl font-bold">Today&apos;s tasks</h2>
+							<p className="mt-1 text-sm text-gray-600">A quick snapshot of tasks due today.</p>
+						</div>
+						<div className="rounded-full bg-mochi-cream px-4 py-2 text-sm font-semibold text-gray-700">
+							{todaysCompleted}/{todaysTasks.length || 0} done
+						</div>
+					</div>
+					<div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+						{[
+							{ label: 'Due today', value: todaysTasks.length },
+							{ label: 'Completed', value: todaysCompleted },
+							{ label: 'Pending', value: todaysPending },
+							{ label: 'High priority', value: todaysHighPriority }
+						].map((item) => (
+							<div key={item.label} className="rounded-2xl bg-mochi-cream/70 px-3 py-3 text-center">
+								<p className="text-[11px] uppercase tracking-[0.2em] text-gray-500">{item.label}</p>
+								<p className="mt-1 text-xl font-bold text-mochi-brown">{item.value}</p>
+							</div>
+						))}
+					</div>
+				</div>
 
 				{/* Filter Tabs */}
 				<motion.div
@@ -210,7 +316,9 @@ export default function TasksPage() {
 										className={`rounded-full px-2 py-1 text-xs font-medium ${
 											task.assignedTo === 'Iqbal'
 												? 'bg-blue-100 text-blue-700'
-												: 'bg-pink-100 text-pink-700'
+												: task.assignedTo === 'Mufti'
+													? 'bg-pink-100 text-pink-700'
+													: 'bg-green-100 text-green-700'
 										}`}
 									>
 										{task.assignedTo}
@@ -271,11 +379,12 @@ export default function TasksPage() {
 								/>
 								<select
 									value={newTaskAssignee}
-									onChange={(e) => setNewTaskAssignee(e.target.value as 'Iqbal' | 'Mufti')}
+									onChange={(e) => setNewTaskAssignee(e.target.value as 'Iqbal' | 'Mufti' | 'Puing')}
 									className="focus:border-mochi-sage w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none"
 								>
 									<option value="Iqbal">Iqbal</option>
 									<option value="Mufti">Mufti</option>
+									<option value="Puing">Puing</option>
 								</select>
 								<input
 									type="time"

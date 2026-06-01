@@ -1,0 +1,15 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Puing House cat icon">
+  <rect width="256" height="256" rx="56" fill="#F7F1E8" />
+  <path d="M66 92L84 50L114 82" stroke="#8B7355" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M190 92L172 50L142 82" stroke="#8B7355" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M62 126C62 91.8172 89.8172 64 124 64H132C166.183 64 194 91.8172 194 126V146C194 180.183 166.183 208 132 208H124C89.8172 208 62 180.183 62 146V126Z" fill="#A4B5A0" />
+  <circle cx="104" cy="136" r="8" fill="#8B7355" />
+  <circle cx="152" cy="136" r="8" fill="#8B7355" />
+  <path d="M122 136H134V142C134 145.314 131.314 148 128 148V148C124.686 148 122 145.314 122 142V136Z" fill="#8B7355" />
+  <path d="M126 164C117.715 164 111 170.715 111 179" stroke="#8B7355" stroke-width="8" stroke-linecap="round" />
+  <path d="M130 164C138.285 164 145 170.715 145 179" stroke="#8B7355" stroke-width="8" stroke-linecap="round" />
+  <path d="M94 158L74 154" stroke="#8B7355" stroke-width="6" stroke-linecap="round" />
+  <path d="M94 170L72 174" stroke="#8B7355" stroke-width="6" stroke-linecap="round" />
+  <path d="M162 158L182 154" stroke="#8B7355" stroke-width="6" stroke-linecap="round" />
+  <path d="M162 170L184 174" stroke="#8B7355" stroke-width="6" stroke-linecap="round" />
+</svg>

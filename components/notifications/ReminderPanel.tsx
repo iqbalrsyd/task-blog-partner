@@ -71,7 +71,12 @@ export default function ReminderPanel() {
 					id: task.id,
 					label: task.title,
 					time: task.dueTime,
-					emoji: task.assignedTo === 'Iqbal' ? '💙' : '💗',
+					emoji:
+						task.assignedTo === 'Iqbal'
+							? '💙'
+							: task.assignedTo === 'Mufti'
+								? '💗'
+								: '💚',
 					status
 				};
 			})

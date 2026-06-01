@@ -16,6 +16,7 @@ const mockNotes: Note[] = [
 		householdId: 'demo-household-001',
 		content: "Don't forget snacks for Puing 😾",
 		author: 'Iqbal',
+		noteTime: '10:30',
 		createdAt: '2026-05-31T10:30:00.000Z',
 		updatedAt: '2026-05-31T10:30:00.000Z'
 	},
@@ -24,6 +25,7 @@ const mockNotes: Note[] = [
 		householdId: 'demo-household-001',
 		content: 'Good luck with your meeting ❤️',
 		author: 'Mufti',
+		noteTime: '09:15',
 		createdAt: '2026-05-31T09:15:00.000Z',
 		updatedAt: '2026-05-31T09:15:00.000Z'
 	},
@@ -32,6 +34,7 @@ const mockNotes: Note[] = [
 		householdId: 'demo-household-001',
 		content: 'Movie night this weekend? 🎬',
 		author: 'Iqbal',
+		noteTime: '18:45',
 		createdAt: '2026-05-30T18:45:00.000Z',
 		updatedAt: '2026-05-30T18:45:00.000Z'
 	}
@@ -49,7 +52,8 @@ export default function NotesPage() {
 	const [notes, setNotes] = useState<Note[]>(mockNotes);
 	const [showNewNote, setShowNewNote] = useState(false);
 	const [newNoteContent, setNewNoteContent] = useState('');
-	const [newNoteAuthor, setNewNoteAuthor] = useState<'Iqbal' | 'Mufti'>('Iqbal');
+	const [newNoteAuthor, setNewNoteAuthor] = useState<'Iqbal' | 'Mufti' | 'Puing'>('Iqbal');
+	const [newNoteTime, setNewNoteTime] = useState(format(new Date(), 'HH:mm'));
 
 	useEffect(() => {
 		if (remoteNotes.length > 0) {
@@ -74,6 +78,7 @@ export default function NotesPage() {
 			householdId: householdId || 'demo-household-001',
 			content: newNoteContent.trim(),
 			author: newNoteAuthor,
+			noteTime: newNoteTime,
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString()
 		};
@@ -89,6 +94,7 @@ export default function NotesPage() {
 		}
 
 		setNewNoteContent('');
+		setNewNoteTime(format(new Date(), 'HH:mm'));
 		setShowNewNote(false);
 	};
 
@@ -120,7 +126,9 @@ export default function NotesPage() {
 									className={`rounded-full px-3 py-1 text-xs font-bold ${
 										note.author === 'Iqbal'
 											? 'bg-blue-200 text-blue-700'
-											: 'bg-pink-200 text-pink-700'
+											: note.author === 'Mufti'
+												? 'bg-pink-200 text-pink-700'
+												: 'bg-green-200 text-green-700'
 									}`}
 								>
 									{note.author}
@@ -136,7 +144,7 @@ export default function NotesPage() {
 							</div>
 							<p className="mb-4 text-lg text-gray-900">{note.content}</p>
 							<div className="absolute bottom-4 right-4 rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold text-gray-600 ring-1 ring-black/5">
-								{formatNoteTime(note.createdAt)}
+								{note.noteTime ?? formatNoteTime(note.createdAt)}
 							</div>
 						</motion.div>
 					))}
@@ -179,8 +187,22 @@ export default function NotesPage() {
 								>
 									Mufti
 								</button>
+								<button
+									className={`rounded-full px-3 py-1 text-xs font-bold ${
+										newNoteAuthor === 'Puing' ? 'bg-green-200 text-green-700' : 'bg-gray-100 text-gray-700'
+									}`}
+									onClick={() => setNewNoteAuthor('Puing')}
+								>
+									Puing
+								</button>
 							</div>
 							<div className="space-y-4">
+								<input
+									type="time"
+									value={newNoteTime}
+									onChange={(e) => setNewNoteTime(e.target.value)}
+									className="focus:border-mochi-sage w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none"
+								/>
 								<textarea
 									placeholder="What do you want to say? 💕"
 									value={newNoteContent}
